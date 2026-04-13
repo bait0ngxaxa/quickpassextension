@@ -1,0 +1,4 @@
+- Purpose: Browser extension 'Quick Pass Copy' for storing website login credentials and enabling quick copy/fill from in-page panel without leaving input fields.
+- Tech stack: Chrome Extension Manifest V3, vanilla JavaScript, HTML, CSS, chrome.storage.local.
+- Main flow: popup manages credential records, content script renders quick panel per domain, background service worker listens for keyboard command and toggles panel.
+- Data model: credentials array in chrome.storage.local with fields id, domain, label, username, password, updatedAt.

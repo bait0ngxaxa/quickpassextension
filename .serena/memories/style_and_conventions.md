@@ -1,0 +1,5 @@
+- Language in UI should remain Thai unless explicitly requested otherwise.
+- Keep implementation simple and modular by feature area: background, content, popup.
+- Prefer explicit input validation at form boundary before persisting.
+- Avoid destructive rewrites; use focused edits.
+- Encoding requirement is UTF-8 and must avoid mojibake for Thai text.

@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Quick Pass Copy",
+  "description": "จัดการรหัสผ่านต่อเว็บไซต์ และก๊อปปี้ได้ทันทีจากหน้าเว็บโดยไม่ต้องสลับแอป",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Quick Pass Copy",
+    "default_popup": "src/popup/popup.html"
+  },
+  "commands": {
+    "toggle_quick_panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C"
+      },
+      "description": "เปิด/ปิดแผงก๊อปปี้รหัสผ่านด่วน"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f8fbff;
+  --text: #10233f;
+  --muted: #5c6f89;
+  --line: #d9e4f2;
+  --line-strong: #b8cae0;
+  --primary: #0f6ad7;
+  --primary-strong: #0b56ae;
+  --secondary: #e8eef7;
+  --secondary-text: #1a3355;
+  --danger: #ce2648;
+  --shadow: 0 14px 36px rgba(16, 35, 63, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 380px;
+  max-width: 430px;
+  font-family: "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(120% 120% at 100% 0%, #d9ecff 0%, transparent 45%),
+    radial-gradient(120% 120% at 0% 100%, #e8f4ff 0%, transparent 45%),
+    var(--bg);
+}
+
+.container {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+h1,
+h2 {
+  margin: 0;
+}
+
+h1 {
+  font-size: 20px;
+  letter-spacing: 0.2px;
+}
+
+h2 {
+  font-size: 14px;
+  letter-spacing: 0.15px;
+}
+
+header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.card {
+  background: linear-gradient(180deg, #ffffff 0%, var(--surface-soft) 100%);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  box-shadow: var(--shadow);
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #274262;
+}
+
+input,
+select {
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: #ffffff;
+  color: var(--text);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(15, 106, 215, 0.15);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.search-input {
+  width: 100%;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pagination-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pagination-text {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pagination-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.chip {
+  background: var(--secondary);
+  color: var(--secondary-text);
+  border: 1px solid #c9d9ec;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chip.active {
+  background: linear-gradient(180deg, #2b86f1 0%, var(--primary) 100%);
+  color: #f3f9ff;
+  border-color: #0e61c5;
+}
+
+button {
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #2b86f1 0%, var(--primary) 100%);
+  color: #eff6ff;
+  padding: 7px 9px;
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+button:hover {
+  filter: brightness(1.02);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button.secondary {
+  background: var(--secondary);
+  color: var(--secondary-text);
+  border: 1px solid #c9d9ec;
+}
+
+button.danger {
+  background: linear-gradient(180deg, #e14b68 0%, var(--danger) 100%);
+  color: #fff1f4;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+}
+
+.group-head {
+  font-size: 11px;
+  color: #38577d;
+  margin-top: 8px;
+  margin-bottom: 1px;
+  font-weight: 800;
+}
+
+.security-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.error {
+  color: #b7173a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notice {
+  color: var(--primary-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.item {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #ffffff;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.item-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #10233f;
+  word-break: break-word;
+}
+
+.item-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.item-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}

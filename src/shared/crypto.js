@@ -1,8 +1,10 @@
 export const CRYPTO_ITERATIONS = 250000;
+export const PORTABLE_KEY_STRATEGY = "portable_v1";
 const KEY_LENGTH = 256;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const VERIFIER_TEXT = "quick-pass:verified";
+const PORTABLE_SALT_BASE64 = "cXVpY2stcGFzcy1wb3J0YWJsZS12MQ==";
 
 export function generateSaltBase64() {
   return arrayBufferToBase64(crypto.getRandomValues(new Uint8Array(SALT_BYTES)).buffer);
@@ -29,6 +31,10 @@ export async function deriveKeyFromPassword(password, saltBase64, iterations = C
     true,
     ["encrypt", "decrypt"]
   );
+}
+
+export async function derivePortableKeyFromPassword(password, iterations = CRYPTO_ITERATIONS) {
+  return deriveKeyFromPassword(password, PORTABLE_SALT_BASE64, iterations);
 }
 
 export async function encryptText(plainText, key) {

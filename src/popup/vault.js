@@ -63,11 +63,21 @@ export async function encryptCredentials(items, key) {
 }
 
 export async function decryptCredentials(items, key) {
+  const { credentials } = await decryptCredentialsWithReport(items, key);
+  return credentials;
+}
+
+export async function decryptCredentialsWithReport(items, key) {
   const decrypted = [];
+  let failedCount = 0;
+  let encryptedCount = 0;
+
   for (const item of items) {
     if (!isEncryptedCredential(item)) {
       continue;
     }
+
+    encryptedCount += 1;
     try {
       const kind = item.kind || "login";
       const baseItem = {
@@ -98,10 +108,15 @@ export async function decryptCredentials(items, key) {
         });
       }
     } catch (_error) {
-      // skip broken row
+      failedCount += 1;
     }
   }
-  return decrypted;
+
+  return {
+    credentials: decrypted,
+    failedCount,
+    encryptedCount
+  };
 }
 
 export async function migrateExistingCredentials(stored, key) {

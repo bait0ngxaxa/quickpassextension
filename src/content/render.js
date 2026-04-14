@@ -20,10 +20,17 @@ export function ensureStyles() {
     #${PANEL_ID}{position:fixed;top:16px;right:16px;width:min(390px,calc(100vw - 32px));max-height:78vh;background:linear-gradient(180deg,#0f1f38 0%,#0c1a2e 100%);color:#e8f1ff;border:1px solid #324766;border-radius:14px;box-shadow:0 20px 48px rgba(5,14,28,.56);z-index:2147483647;overflow:auto;display:none;font-family:"Segoe UI","Noto Sans Thai",Tahoma,sans-serif;}
     #${PANEL_ID}.qp-open{display:block;}
     #${PANEL_ID} .qp-top{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,rgba(15,31,56,.98) 0%,rgba(12,26,46,.92) 100%);backdrop-filter:blur(6px);border-bottom:1px solid #2c4363;padding:8px 10px 6px;}
+    #${PANEL_ID} .qp-top-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
     #${PANEL_ID} .qp-head{font-size:13px;color:#a7bad4;font-weight:700;}
     #${PANEL_ID} .qp-note{font-size:11px;color:#93a8c6;padding:0 14px 6px;}
     #${PANEL_ID} .qp-search{margin:8px 2px 2px;width:100%;border:1px solid #395279;background:#091324;color:#e8f1ff;border-radius:9px;padding:8px 9px;font-size:12px;}
     #${PANEL_ID} .qp-search:focus{outline:none;border-color:#2b86f1;box-shadow:0 0 0 3px rgba(43,134,241,.2);}
+    #${PANEL_ID} .qp-unlock-form{padding:12px 14px 14px;display:grid;gap:8px;}
+    #${PANEL_ID} .qp-unlock-label{font-size:11px;color:#bcd0ed;font-weight:700;}
+    #${PANEL_ID} .qp-unlock-input{width:100%;border:1px solid #395279;background:#091324;color:#e8f1ff;border-radius:9px;padding:8px 9px;font-size:12px;}
+    #${PANEL_ID} .qp-unlock-input:focus{outline:none;border-color:#2b86f1;box-shadow:0 0 0 3px rgba(43,134,241,.2);}
+    #${PANEL_ID} .qp-unlock-feedback{font-size:11px;line-height:1.4;border-radius:9px;padding:8px 9px;background:rgba(225,75,104,.12);border:1px solid rgba(225,75,104,.36);color:#ffd2db;display:none;}
+    #${PANEL_ID} .qp-unlock-feedback.qp-show{display:block;}
     #${PANEL_ID} .qp-chip-row{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 0;}
     #${PANEL_ID} .qp-chip{background:#1a2a45;color:#cfe0f9;border:1px solid #2b4468;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;}
     #${PANEL_ID} .qp-chip-active{background:linear-gradient(180deg,#2b86f1 0%,#0f6ad7 100%);color:#f3f9ff;border-color:#0d5fc2;}
@@ -36,6 +43,7 @@ export function ensureStyles() {
     #${PANEL_ID} button:hover{filter:brightness(1.03);}
     #${PANEL_ID} button:active{transform:translateY(1px);}
     #${PANEL_ID} button.qp-secondary{background:#1a2a45;color:#d8e7fb;border:1px solid #2d466d;}
+    #${PANEL_ID} button.qp-close-top{min-width:30px;min-height:30px;padding:0 8px;background:#182842;color:#dbe8fb;border:1px solid #355078;font-size:14px;line-height:1;}
     #${PANEL_ID} .qp-empty{padding:16px 14px 20px;color:#cad8ef;font-size:12px;line-height:1.45;}
     #${PANEL_ID} .qp-loading{padding:14px;font-size:12px;color:#c8d8ef;}
     #${PANEL_ID} .qp-close{background:linear-gradient(180deg,#e14b68 0%,#ce2648 100%);}
@@ -54,13 +62,36 @@ export function ensurePanelRoot() {
   return panelRoot;
 }
 
-export function renderLockedPanel(host, reason) {
-  const message = reason === "not_initialized" ? "ยังไม่ได้ตั้ง Master Password" : "Vault ยังถูกล็อกอยู่";
+export function renderLockedPanel(host, reason, feedback = "") {
+  const message =
+    reason === "not_initialized"
+      ? "ยังไม่ได้ตั้ง Master Password"
+      : reason === "not_logged_in"
+        ? "ยังไม่ได้ล็อกอิน Supabase"
+        : "Vault ยังถูกล็อกอยู่";
+  const canUnlock = reason === "locked";
   return `
     <div class="qp-top">
-      <div class="qp-head">Quick Pass · ${escapeHtml(host || "เว็บไซต์นี้")}</div>
+      <div class="qp-top-row">
+        <div class="qp-head">Quick Pass · ${escapeHtml(host || "เว็บไซต์นี้")}</div>
+        <button class="qp-close-top" data-action="close" aria-label="ปิด">×</button>
+      </div>
     </div>
-    <div class="qp-empty">${escapeHtml(message)}<br />ให้เปิด popup ของส่วนเสริม แล้วตั้งค่า/ปลดล็อกก่อนใช้งาน</div>
+    <div class="qp-empty">${escapeHtml(message)}<br />${
+      canUnlock ? "ปลดล็อกได้จากแผงนี้ทันที" : "ให้เปิด popup ของส่วนเสริม แล้วตั้งค่า/ปลดล็อกก่อนใช้งาน"
+    }</div>
+    ${
+      canUnlock
+        ? `
+          <form class="qp-unlock-form" data-role="unlock-form">
+            <label class="qp-unlock-label" for="qp-unlock-password">Master Password</label>
+            <input id="qp-unlock-password" class="qp-unlock-input" name="password" type="password" autocomplete="current-password" />
+            <div class="${feedback ? "qp-unlock-feedback qp-show" : "qp-unlock-feedback"}" id="qp-unlock-feedback">${escapeHtml(feedback)}</div>
+            <button type="submit" data-action="unlock-vault">ปลดล็อก Vault</button>
+          </form>
+        `
+        : ""
+    }
     <div class="qp-foot"><button class="qp-close" data-action="close">ปิด</button></div>
   `;
 }
@@ -72,7 +103,10 @@ export function renderPanelShell(host, reason) {
       : "รายการโดเมนตรงและปักหมุดจะถูกดันขึ้นก่อน";
   return `
     <div class="qp-top">
-      <div class="qp-head">Quick Pass · ${escapeHtml(host || "เว็บไซต์นี้")}</div>
+      <div class="qp-top-row">
+        <div class="qp-head">Quick Pass · ${escapeHtml(host || "เว็บไซต์นี้")}</div>
+        <button class="qp-close-top" data-action="close" aria-label="ปิด">×</button>
+      </div>
       <input id="qp-search" class="qp-search" type="text" placeholder="ค้นหาโดเมน / ชื่อ / key" />
     </div>
     <div class="qp-note">${escapeHtml(note)}</div>

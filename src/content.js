@@ -1,6 +1,6 @@
 import { PANEL_ID } from "./content/constants.js";
 import { QUICK_PANEL_MESSAGE } from "./content/messages.js";
-import { loadEntriesByHost, touchEntry } from "./content/api.js";
+import { loadEntriesByHost, touchEntry, unlockVault } from "./content/api.js";
 import { ensurePanelRoot, ensureStyles, renderEntries, renderLockedPanel, renderPanelShell } from "./content/render.js";
 import { createPanelState, getFilteredEntries } from "./content/state.js";
 import { copyText, isEditable, normalizeHost } from "./content/utils.js";
@@ -43,18 +43,7 @@ function bootstrapContentPanel() {
     panelVisible = true;
 
     const host = normalizeHost(window.location.hostname);
-    const result = await loadEntriesByHost(host);
-    if (result.locked) {
-      panelRoot.innerHTML = renderLockedPanel(host, result.reason);
-      bindClickEvents(panelRoot);
-      return;
-    }
-
-    panelState = createPanelState({ host, entries: result.entries || [], reason: result.reason || "" });
-    panelRoot.innerHTML = renderPanelShell(panelState.host, panelState.reason);
-    bindClickEvents(panelRoot);
-    bindFilterEvents(panelRoot);
-    refreshList(panelRoot);
+    await loadAndRenderPanel(panelRoot, host);
   }
 
   function hidePanel() {
@@ -84,17 +73,74 @@ function bootstrapContentPanel() {
       const entry = panelState.entries.find((item) => item.id === id);
       if (!entry) return;
 
-      if (action === "copy-user") await handleCopy(id, entry.username);
-      else if (action === "copy-pass") await handleCopy(id, entry.password);
-      else if (action === "copy-secret-name") await handleCopy(id, entry.secretName);
-      else if (action === "copy-secret-value") await handleCopy(id, entry.secretValue);
-      else if (action === "fill-user") await handleFill(id, entry.username);
-      else if (action === "fill-pass") await handleFill(id, entry.password);
-      else if (action === "fill-secret-name") await handleFill(id, entry.secretName);
-      else if (action === "fill-secret-value") await handleFill(id, entry.secretValue);
-      else return;
+      if (action === "copy-user") {
+        await handleCopy(id, entry.username);
+        return;
+      }
+      if (action === "copy-pass") {
+        await handleCopy(id, entry.password);
+        return;
+      }
+      if (action === "copy-secret-name") {
+        await handleCopy(id, entry.secretName);
+        return;
+      }
+      if (action === "copy-secret-value") {
+        await handleCopy(id, entry.secretValue);
+        return;
+      }
+      if (action === "fill-user") {
+        await handleFill(id, entry.username);
+        hidePanel();
+        return;
+      }
+      if (action === "fill-pass") {
+        await handleFill(id, entry.password);
+        hidePanel();
+        return;
+      }
+      if (action === "fill-secret-name") {
+        await handleFill(id, entry.secretName);
+        hidePanel();
+        return;
+      }
+      if (action === "fill-secret-value") {
+        await handleFill(id, entry.secretValue);
+        hidePanel();
+        return;
+      }
+    };
+  }
 
-      hidePanel();
+  function bindUnlockEvents(panelRoot, host) {
+    const unlockForm = panelRoot.querySelector('[data-role="unlock-form"]');
+    if (!(unlockForm instanceof HTMLFormElement)) {
+      return;
+    }
+
+    unlockForm.onsubmit = async (event) => {
+      event.preventDefault();
+      const formData = new FormData(unlockForm);
+      const password = String(formData.get("password") || "");
+      const submitButton = unlockForm.querySelector('[data-action="unlock-vault"]');
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = true;
+        submitButton.textContent = "กำลังปลดล็อก...";
+      }
+
+      const result = await unlockVault(password);
+      if (!result.ok) {
+        panelRoot.innerHTML = renderLockedPanel(host, "locked", result.error || "ไม่สามารถปลดล็อกได้");
+        bindClickEvents(panelRoot);
+        bindUnlockEvents(panelRoot, host);
+        const passwordInput = panelRoot.querySelector("#qp-unlock-password");
+        if (passwordInput instanceof HTMLInputElement) {
+          passwordInput.focus();
+        }
+        return;
+      }
+
+      await loadAndRenderPanel(panelRoot, host);
     };
   }
 
@@ -137,6 +183,26 @@ function bootstrapContentPanel() {
     const listNode = panelRoot.querySelector("#qp-list");
     if (!(listNode instanceof HTMLElement)) return;
     listNode.innerHTML = renderEntries(getFilteredEntries(panelState), panelState.host);
+  }
+
+  async function loadAndRenderPanel(panelRoot, host) {
+    const result = await loadEntriesByHost(host);
+    if (result.locked) {
+      panelRoot.innerHTML = renderLockedPanel(host, result.reason);
+      bindClickEvents(panelRoot);
+      bindUnlockEvents(panelRoot, host);
+      const passwordInput = panelRoot.querySelector("#qp-unlock-password");
+      if (passwordInput instanceof HTMLInputElement) {
+        passwordInput.focus();
+      }
+      return;
+    }
+
+    panelState = createPanelState({ host, entries: result.entries || [], reason: result.reason || "" });
+    panelRoot.innerHTML = renderPanelShell(panelState.host, panelState.reason);
+    bindClickEvents(panelRoot);
+    bindFilterEvents(panelRoot);
+    refreshList(panelRoot);
   }
 
   async function handleCopy(id, value) {

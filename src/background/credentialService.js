@@ -1,26 +1,32 @@
-import { decryptText, importKeyFromBase64 } from "../shared/crypto.js";
-
-const SECURITY_KEY = "security";
-const SESSION_KEY = "masterKeyBase64";
-const CREDENTIALS_KEY = "credentials";
+import { decryptText } from "../shared/crypto.js";
+import { touchVaultSession } from "../shared/vaultSession.js";
+import { listEncryptedVaultItems, upsertEncryptedVaultItems } from "../supabase/vaultStore.js";
+import { initializeVault, unlockVault } from "../popup/vaultService.js";
 
 export async function getEntriesForHost(host) {
   const normalizedHost = normalizeHost(host || "");
-  const { security } = await chrome.storage.local.get([SECURITY_KEY]);
-  if (!security) {
+  const vaultState = await initializeVault();
+  if (vaultState.mode === "setup") {
     return { locked: true, reason: "not_initialized", entries: [] };
   }
-
-  const { masterKeyBase64 = "" } = await chrome.storage.session.get([SESSION_KEY]);
-  if (!masterKeyBase64) {
+  if (vaultState.mode !== "ready" || !vaultState.key) {
     return { locked: true, reason: "locked", entries: [] };
   }
 
-  const key = await importKeyFromBase64(masterKeyBase64);
-  const { credentials = [] } = await chrome.storage.local.get([CREDENTIALS_KEY]);
+  await touchVaultSession();
+  const key = vaultState.key;
+  const result = await listEncryptedVaultItems();
+  if (!result.ok) {
+    return {
+      locked: result.error === "ยังไม่ได้ login Supabase",
+      reason: result.error === "ยังไม่ได้ login Supabase" ? "not_logged_in" : "unknown",
+      entries: []
+    };
+  }
+
   const decryptedEntries = [];
 
-  for (const item of credentials) {
+  for (const item of result.items) {
     try {
       const entry = await decryptEntry(item, key, normalizedHost);
       if (entry) {
@@ -40,19 +46,38 @@ export async function getEntriesForHost(host) {
   return { locked: false, reason: hasMatched ? "" : "fallback_all", entries: sortedEntries };
 }
 
+export async function unlockVaultFromPanel(password) {
+  const value = String(password || "").trim();
+  if (!value) {
+    return { ok: false, error: "กรอก Master Password ก่อน" };
+  }
+
+  const result = await unlockVault(value);
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.reason === "invalid_password" ? "Master Password ไม่ถูกต้อง" : "ไม่สามารถปลดล็อกได้"
+    };
+  }
+
+  return { ok: true, error: "" };
+}
+
 export async function touchEntry(id) {
   if (!id) return;
-  const { credentials = [] } = await chrome.storage.local.get([CREDENTIALS_KEY]);
+  await touchVaultSession();
+  const result = await listEncryptedVaultItems();
+  if (!result.ok) return;
+
   const now = Date.now();
-  let changed = false;
-  const nextCredentials = credentials.map((item) => {
-    if (item.id !== id) return item;
-    changed = true;
-    return { ...item, lastUsedAt: now };
+  let changedItem = null;
+  result.items.forEach((item) => {
+    if (item.id !== id) return;
+    changedItem = { ...item, lastUsedAt: now, updatedAt: now };
   });
 
-  if (changed) {
-    await chrome.storage.local.set({ [CREDENTIALS_KEY]: nextCredentials });
+  if (changedItem) {
+    await upsertEncryptedVaultItems([changedItem]);
   }
 }
 

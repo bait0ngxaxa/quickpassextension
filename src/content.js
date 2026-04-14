@@ -63,12 +63,14 @@ function bootstrapContentPanel() {
   function bindClickEvents(panelRoot) {
     panelRoot.onclick = async (event) => {
       const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      const action = target.dataset.action;
+      if (!(target instanceof Element)) return;
+      const actionNode = target.closest("[data-action]");
+      if (!(actionNode instanceof HTMLElement)) return;
+      const action = actionNode.dataset.action;
       if (!action) return;
       if (action === "close") return hidePanel();
 
-      const id = target.dataset.id;
+      const id = actionNode.dataset.id;
       if (!id) return;
       const entry = panelState.entries.find((item) => item.id === id);
       if (!entry) return;

@@ -49,11 +49,30 @@ body {
   gap: 8px;
 }
 
+.ui-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.btn-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .gear-btn {
   min-width: 34px;
   min-height: 34px;
   padding: 0;
-  font-size: 16px;
+}
+
+.icon-only-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn {
@@ -187,6 +206,24 @@ select:focus {
   width: 100%;
 }
 
+.search-wrap {
+  position: relative;
+}
+
+.search-wrap .search-input {
+  padding-left: 34px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6f88a8;
+  pointer-events: none;
+  display: inline-flex;
+}
+
 .chips {
   display: flex;
   gap: 6px;
@@ -255,6 +292,13 @@ select:focus {
   border-color: #0e61c5;
 }
 
+.chip-icon {
+  width: 13px;
+  height: 13px;
+  display: block;
+  flex: 0 0 auto;
+}
+
 button {
   border: none;
   border-radius: 9px;
@@ -314,6 +358,12 @@ button.danger {
   gap: 10px;
 }
 
+.status-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .empty {
   color: var(--muted);
   font-size: 12px;
@@ -371,6 +421,51 @@ button.danger {
   font-weight: 800;
   color: #10233f;
   word-break: break-word;
+}
+
+.item-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.item-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.item-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.item-kind-badge.login {
+  color: #0b56ae;
+  background: #e6f0ff;
+}
+
+.item-kind-badge.secret {
+  color: #0f6b5d;
+  background: #e5faf4;
+}
+
+.item-kind-badge.pinned {
+  color: #8a5b00;
+  background: #fff4d9;
+}
+
+.badge-icon {
+  width: 11px;
+  height: 11px;
+  display: block;
 }
 
 .item-sub {

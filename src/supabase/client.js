@@ -2,8 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const GLOBAL_CLIENT_CACHE_KEY = "__quickPassSupabaseClientCache";
 const SUPABASE_AUTH_STORAGE_PREFIX = "supabaseAuth";
-const SUPABASE_URL = normalizeSupabaseUrl(import.meta.env.VITE_SUPABASE_URL);
-const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+const env = import.meta.env || {};
+const SUPABASE_URL = normalizeSupabaseUrl(env.VITE_SUPABASE_URL);
+const SUPABASE_ANON_KEY = String(env.VITE_SUPABASE_ANON_KEY || "").trim();
 
 function getGlobalCache() {
   if (!globalThis[GLOBAL_CLIENT_CACHE_KEY]) {

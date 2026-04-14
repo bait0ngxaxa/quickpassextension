@@ -3,9 +3,17 @@ import { touchVaultSession } from "../shared/vaultSession.js";
 import { listEncryptedVaultItems, upsertEncryptedVaultItems } from "../supabase/vaultStore.js";
 import { initializeVault, unlockVault } from "../popup/vaultService.js";
 
+const services = {
+  initializeVault,
+  unlockVault,
+  listEncryptedVaultItems,
+  upsertEncryptedVaultItems,
+  touchVaultSession
+};
+
 export async function getEntriesForHost(host) {
   const normalizedHost = normalizeHost(host || "");
-  const vaultState = await initializeVault();
+  const vaultState = await services.initializeVault();
   if (vaultState.mode === "setup") {
     return { locked: true, reason: "not_initialized", entries: [] };
   }
@@ -13,9 +21,9 @@ export async function getEntriesForHost(host) {
     return { locked: true, reason: "locked", entries: [] };
   }
 
-  await touchVaultSession();
+  await services.touchVaultSession();
   const key = vaultState.key;
-  const result = await listEncryptedVaultItems();
+  const result = await services.listEncryptedVaultItems();
   if (!result.ok) {
     return {
       locked: result.error === "ยังไม่ได้ login Supabase",
@@ -52,7 +60,7 @@ export async function unlockVaultFromPanel(password) {
     return { ok: false, error: "กรอก Master Password ก่อน" };
   }
 
-  const result = await unlockVault(value);
+  const result = await services.unlockVault(value);
   if (!result.ok) {
     return {
       ok: false,
@@ -65,8 +73,8 @@ export async function unlockVaultFromPanel(password) {
 
 export async function touchEntry(id) {
   if (!id) return;
-  await touchVaultSession();
-  const result = await listEncryptedVaultItems();
+  await services.touchVaultSession();
+  const result = await services.listEncryptedVaultItems();
   if (!result.ok) return;
 
   const now = Date.now();
@@ -77,8 +85,20 @@ export async function touchEntry(id) {
   });
 
   if (changedItem) {
-    await upsertEncryptedVaultItems([changedItem]);
+    await services.upsertEncryptedVaultItems([changedItem]);
   }
+}
+
+export function setCredentialServiceDependencies(overrides) {
+  Object.assign(services, overrides || {});
+}
+
+export function resetCredentialServiceDependencies() {
+  services.initializeVault = initializeVault;
+  services.unlockVault = unlockVault;
+  services.listEncryptedVaultItems = listEncryptedVaultItems;
+  services.upsertEncryptedVaultItems = upsertEncryptedVaultItems;
+  services.touchVaultSession = touchVaultSession;
 }
 
 async function decryptEntry(item, key, normalizedHost) {

@@ -1,9 +1,5 @@
 import {
   PANEL_ID,
-  SCOPE_ALL,
-  SCOPE_CROSS,
-  SCOPE_CURRENT,
-  SCOPE_PINNED,
   STYLE_ID,
   TAB_ALL,
   TAB_LOGIN,
@@ -96,14 +92,17 @@ export function ensurePanelRoot() {
   return panelRoot;
 }
 
-export function renderLockedPanel(host, reason, feedback = "") {
+export function renderLockedPanel(host, reason) {
   const message =
     reason === "not_initialized"
       ? "ยังไม่ได้ตั้ง Master Password"
       : reason === "not_logged_in"
         ? "ยังไม่ได้ล็อกอิน Supabase"
         : "Vault ยังถูกล็อกอยู่";
-  const canUnlock = reason === "locked";
+  const detail =
+    reason === "not_logged_in"
+      ? "ให้เปิดหน้าจัดการ Vault แล้วล็อกอิน Supabase ก่อนใช้งาน"
+      : "ให้เปิดหน้าจัดการ Vault แล้วตั้งค่า/ปลดล็อกก่อนใช้งาน";
   return `
     <div class="qp-top">
       <div class="qp-top-row">
@@ -111,30 +110,16 @@ export function renderLockedPanel(host, reason, feedback = "") {
         <button class="qp-close-top" data-action="close" aria-label="ปิด">${renderIcon("close", "qp-icon")}</button>
       </div>
     </div>
-    <div class="qp-empty">${escapeHtml(message)}<br />${
-      canUnlock ? "ปลดล็อกได้จากแผงนี้ทันที" : "ให้เปิด popup ของส่วนเสริม แล้วตั้งค่า/ปลดล็อกก่อนใช้งาน"
-    }</div>
-    ${
-      canUnlock
-        ? `
-          <form class="qp-unlock-form" data-role="unlock-form">
-            <label class="qp-unlock-label" for="qp-unlock-password">Master Password</label>
-            <input id="qp-unlock-password" class="qp-unlock-input" name="password" type="password" autocomplete="current-password" />
-            <div class="${feedback ? "qp-unlock-feedback qp-show" : "qp-unlock-feedback"}" id="qp-unlock-feedback">${escapeHtml(feedback)}</div>
-            <button type="submit" data-action="unlock-vault"><span class="qp-btn-content">${renderIcon("unlock", "qp-icon")}<span>ปลดล็อก Vault</span></span></button>
-          </form>
-        `
-        : ""
-    }
-    <div class="qp-foot"><button class="qp-close" data-action="close">ปิด</button></div>
+    <div class="qp-empty">${escapeHtml(message)}<br />${escapeHtml(detail)}</div>
+    <div class="qp-foot">
+      <button data-action="open-vault-page"><span class="qp-btn-content">${renderIcon("unlock", "qp-icon")}<span>เปิดหน้าจัดการ Vault</span></span></button>
+      <button class="qp-close" data-action="close">ปิด</button>
+    </div>
   `;
 }
 
 export function renderPanelShell(host, reason) {
-  const note =
-    reason === "fallback_all"
-      ? "ไม่พบโดเมนตรง แสดงรายการจากทุกโดเมน"
-      : "รายการโดเมนตรงและปักหมุดจะถูกดันขึ้นก่อน";
+  const note = "แสดงเฉพาะข้อมูลของโดเมนปัจจุบัน";
   return `
     <div class="qp-top">
       <div class="qp-top-row">
@@ -148,7 +133,6 @@ export function renderPanelShell(host, reason) {
     </div>
     <div class="qp-note">${escapeHtml(note)}</div>
     <div class="qp-chip-row">${chip("tab", TAB_ALL, "ทั้งหมด", true)}${chip("tab", TAB_LOGIN, "ล็อกอิน")}${chip("tab", TAB_SECRET, "API/Secret")}</div>
-    <div class="qp-chip-row">${chip("scope", SCOPE_ALL, "ทุกโดเมน", true)}${chip("scope", SCOPE_CURRENT, "โดเมนนี้")}${chip("scope", SCOPE_CROSS, "ข้ามโดเมน")}${chip("scope", SCOPE_PINNED, "ปักหมุด")}</div>
     <div class="qp-list" id="qp-list"></div>
     <div class="qp-foot"><button class="qp-close" data-action="close">ปิด</button></div>
   `;

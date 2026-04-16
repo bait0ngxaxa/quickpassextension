@@ -1,6 +1,6 @@
 import { PANEL_ID } from "./content/constants.js";
 import { QUICK_PANEL_MESSAGE } from "./content/messages.js";
-import { loadEntriesByHost, touchEntry, unlockVault } from "./content/api.js";
+import { loadEntriesByHost, openVaultPage, resolveEntryField, touchEntry } from "./content/api.js";
 import { ensurePanelRoot, ensureStyles, renderEntries, renderLockedPanel, renderPanelShell } from "./content/render.js";
 import { createPanelState, getFilteredEntries } from "./content/state.js";
 import { copyText, isEditable, normalizeHost } from "./content/utils.js";
@@ -69,6 +69,10 @@ function bootstrapContentPanel() {
       const action = actionNode.dataset.action;
       if (!action) return;
       if (action === "close") return hidePanel();
+      if (action === "open-vault-page") {
+        await openVaultPage();
+        return;
+      }
 
       const id = actionNode.dataset.id;
       if (!id) return;
@@ -76,73 +80,41 @@ function bootstrapContentPanel() {
       if (!entry) return;
 
       if (action === "copy-user") {
-        await handleCopy(id, entry.username);
+        await handleCopy(id, "username");
         return;
       }
       if (action === "copy-pass") {
-        await handleCopy(id, entry.password);
+        await handleCopy(id, "password");
         return;
       }
       if (action === "copy-secret-name") {
-        await handleCopy(id, entry.secretName);
+        await handleCopy(id, "secretName");
         return;
       }
       if (action === "copy-secret-value") {
-        await handleCopy(id, entry.secretValue);
+        await handleCopy(id, "secretValue");
         return;
       }
       if (action === "fill-user") {
-        await handleFill(id, entry.username);
+        await handleFill(id, "username");
         hidePanel();
         return;
       }
       if (action === "fill-pass") {
-        await handleFill(id, entry.password);
+        await handleFill(id, "password");
         hidePanel();
         return;
       }
       if (action === "fill-secret-name") {
-        await handleFill(id, entry.secretName);
+        await handleFill(id, "secretName");
         hidePanel();
         return;
       }
       if (action === "fill-secret-value") {
-        await handleFill(id, entry.secretValue);
+        await handleFill(id, "secretValue");
         hidePanel();
         return;
       }
-    };
-  }
-
-  function bindUnlockEvents(panelRoot, host) {
-    const unlockForm = panelRoot.querySelector('[data-role="unlock-form"]');
-    if (!(unlockForm instanceof HTMLFormElement)) {
-      return;
-    }
-
-    unlockForm.onsubmit = async (event) => {
-      event.preventDefault();
-      const formData = new FormData(unlockForm);
-      const password = String(formData.get("password") || "");
-      const submitButton = unlockForm.querySelector('[data-action="unlock-vault"]');
-      if (submitButton instanceof HTMLButtonElement) {
-        submitButton.disabled = true;
-        submitButton.textContent = "กำลังปลดล็อก...";
-      }
-
-      const result = await unlockVault(password);
-      if (!result.ok) {
-        panelRoot.innerHTML = renderLockedPanel(host, "locked", result.error || "ไม่สามารถปลดล็อกได้");
-        bindClickEvents(panelRoot);
-        bindUnlockEvents(panelRoot, host);
-        const passwordInput = panelRoot.querySelector("#qp-unlock-password");
-        if (passwordInput instanceof HTMLInputElement) {
-          passwordInput.focus();
-        }
-        return;
-      }
-
-      await loadAndRenderPanel(panelRoot, host);
     };
   }
 
@@ -162,7 +134,6 @@ function bootstrapContentPanel() {
         const kind = chip.dataset.filter;
         const value = chip.dataset.value || "";
         if (kind === "tab") panelState.tab = value;
-        if (kind === "scope") panelState.scope = value;
         updateActiveChips(panelRoot);
         refreshList(panelRoot);
       };
@@ -175,8 +146,7 @@ function bootstrapContentPanel() {
       if (!(chip instanceof HTMLElement)) return;
       const kind = chip.dataset.filter;
       const value = chip.dataset.value || "";
-      const active =
-        (kind === "tab" && value === panelState.tab) || (kind === "scope" && value === panelState.scope);
+      const active = kind === "tab" && value === panelState.tab;
       chip.className = active ? "qp-chip qp-chip-active" : "qp-chip";
     });
   }
@@ -192,11 +162,6 @@ function bootstrapContentPanel() {
     if (result.locked) {
       panelRoot.innerHTML = renderLockedPanel(host, result.reason);
       bindClickEvents(panelRoot);
-      bindUnlockEvents(panelRoot, host);
-      const passwordInput = panelRoot.querySelector("#qp-unlock-password");
-      if (passwordInput instanceof HTMLInputElement) {
-        passwordInput.focus();
-      }
       return;
     }
 
@@ -207,18 +172,41 @@ function bootstrapContentPanel() {
     refreshList(panelRoot);
   }
 
-  async function handleCopy(id, value) {
+  async function handleCopy(id, field) {
+    const value = await resolveActionValue(id, field);
     if (!value) return;
-    await copyText(value);
+    const copied = await copyText(value);
+    if (!copied) return;
     await touchEntry(id);
   }
 
-  async function handleFill(id, value) {
+  async function handleFill(id, field) {
+    const value = await resolveActionValue(id, field);
     if (!value || !isEditable(lastFocusedInput)) return;
     lastFocusedInput.focus();
     lastFocusedInput.value = value;
     lastFocusedInput.dispatchEvent(new Event("input", { bubbles: true }));
     lastFocusedInput.dispatchEvent(new Event("change", { bubbles: true }));
     await touchEntry(id);
+  }
+
+  async function resolveActionValue(id, field) {
+    const result = await resolveEntryField(panelState.host, id, field);
+    if (result.ok) {
+      return result.value;
+    }
+
+    if (
+      result.reason === "locked" ||
+      result.reason === "not_initialized" ||
+      result.reason === "not_logged_in"
+    ) {
+      const panelRoot = document.getElementById(PANEL_ID);
+      if (panelRoot instanceof HTMLElement) {
+        await loadAndRenderPanel(panelRoot, panelState.host);
+      }
+    }
+
+    return "";
   }
 }

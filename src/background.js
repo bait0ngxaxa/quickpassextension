@@ -1,5 +1,5 @@
-import { getEntriesForHost, touchEntry, unlockVaultFromPanel } from "./background/credentialService.js";
-import { GET_ENTRIES_MESSAGE, TOUCH_ENTRY_MESSAGE, UNLOCK_VAULT_MESSAGE } from "./background/messages.js";
+import { getEntriesForHost, resolveEntryFieldForHost, touchEntry } from "./background/credentialService.js";
+import { GET_ENTRIES_MESSAGE, OPEN_VAULT_PAGE_MESSAGE, RESOLVE_ENTRY_FIELD_MESSAGE, TOUCH_ENTRY_MESSAGE } from "./background/messages.js";
 import { sendToggleToActiveTab } from "./background/tabService.js";
 
 chrome.commands.onCommand.addListener(async (command) => {
@@ -17,17 +17,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === TOUCH_ENTRY_MESSAGE) {
-    void touchEntry(message.id)
+  if (message?.type === RESOLVE_ENTRY_FIELD_MESSAGE) {
+    void resolveEntryFieldForHost(message.host, message.id, message.field)
+      .then((result) => sendResponse(result))
+      .catch(() => sendResponse({ ok: false, reason: "unknown", value: "", error: "ไม่สามารถอ่านข้อมูลได้" }));
+    return true;
+  }
+
+  if (message?.type === OPEN_VAULT_PAGE_MESSAGE) {
+    void chrome.tabs.create({ url: chrome.runtime.getURL("src/popup/popup.html") })
       .then(() => sendResponse({ ok: true }))
       .catch(() => sendResponse({ ok: false }));
     return true;
   }
 
-  if (message?.type === UNLOCK_VAULT_MESSAGE) {
-    void unlockVaultFromPanel(message.password)
-      .then((result) => sendResponse(result))
-      .catch(() => sendResponse({ ok: false, error: "ไม่สามารถปลดล็อก Vault ได้" }));
+  if (message?.type === TOUCH_ENTRY_MESSAGE) {
+    void touchEntry(message.id)
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
 

@@ -6,9 +6,9 @@ import { encryptCredentialItem } from "../src/popup/vault.js";
 import {
   getEntriesForHost,
   resetCredentialServiceDependencies,
+  resolveEntryFieldForHost,
   setCredentialServiceDependencies,
-  touchEntry,
-  unlockVaultFromPanel
+  touchEntry
 } from "../src/background/credentialService.js";
 
 test.afterEach(() => {
@@ -39,7 +39,7 @@ test("getEntriesForHost returns not_logged_in when Supabase session is missing",
   assert.deepEqual(result, { locked: true, reason: "not_logged_in", entries: [] });
 });
 
-test("getEntriesForHost decrypts, sorts pinned first, and falls back to cross-domain items", async () => {
+test("getEntriesForHost returns only current-domain metadata", async () => {
   const key = await derivePortableKeyFromPassword("strong-password-123");
   const currentLogin = await encryptCredentialItem(
     {
@@ -52,6 +52,20 @@ test("getEntriesForHost decrypts, sorts pinned first, and falls back to cross-do
       pinned: false,
       lastUsedAt: 100,
       updatedAt: 100
+    },
+    key
+  );
+  const currentPinnedSecret = await encryptCredentialItem(
+    {
+      id: "secret-current",
+      kind: "secret",
+      domain: "example.com",
+      label: "คีย์ในโดเมนนี้",
+      secretName: "CURRENT_API_KEY",
+      secretValue: "sk-current",
+      pinned: true,
+      lastUsedAt: 150,
+      updatedAt: 150
     },
     key
   );
@@ -73,7 +87,7 @@ test("getEntriesForHost decrypts, sorts pinned first, and falls back to cross-do
   setCredentialServiceDependencies({
     initializeVault: async () => ({ mode: "ready", key }),
     touchVaultSession: async () => true,
-    listEncryptedVaultItems: async () => ({ ok: true, error: "", items: [currentLogin, pinnedSecret] })
+    listEncryptedVaultItems: async () => ({ ok: true, error: "", items: [currentLogin, currentPinnedSecret, pinnedSecret] })
   });
 
   const result = await getEntriesForHost("example.com");
@@ -81,11 +95,59 @@ test("getEntriesForHost decrypts, sorts pinned first, and falls back to cross-do
   assert.equal(result.locked, false);
   assert.equal(result.reason, "");
   assert.equal(result.entries.length, 2);
-  assert.equal(result.entries[0].id, "secret-cross");
+  assert.equal(result.entries[0].id, "secret-current");
   assert.equal(result.entries[0].pinned, true);
   assert.equal(result.entries[1].id, "login-current");
   assert.equal(result.entries[1].isMatched, true);
-  assert.equal(result.entries[0].secretValue, "sk-123");
+  assert.equal(result.entries[0].label, "คีย์ในโดเมนนี้");
+  assert.equal("secretValue" in result.entries[0], false);
+  assert.equal("password" in result.entries[1], false);
+  assert.equal(result.entries.some((item) => item.id === "secret-cross"), false);
+});
+
+test("resolveEntryFieldForHost decrypts only the requested field for the current domain", async () => {
+  const key = await derivePortableKeyFromPassword("strong-password-123");
+  const currentLogin = await encryptCredentialItem(
+    {
+      id: "login-current",
+      kind: "login",
+      domain: "example.com",
+      label: "เว็บหลัก",
+      username: "me@example.com",
+      password: "pw-1",
+      pinned: false,
+      lastUsedAt: 100,
+      updatedAt: 100
+    },
+    key
+  );
+  const crossSecret = await encryptCredentialItem(
+    {
+      id: "secret-cross",
+      kind: "secret",
+      domain: "api.other.com",
+      label: "สำคัญ",
+      secretName: "OPENAI_API_KEY",
+      secretValue: "sk-123",
+      pinned: true,
+      lastUsedAt: 50,
+      updatedAt: 50
+    },
+    key
+  );
+
+  setCredentialServiceDependencies({
+    initializeVault: async () => ({ mode: "ready", key }),
+    touchVaultSession: async () => true,
+    listEncryptedVaultItems: async () => ({ ok: true, error: "", items: [currentLogin, crossSecret] })
+  });
+
+  const password = await resolveEntryFieldForHost("example.com", "login-current", "password");
+  const crossDomain = await resolveEntryFieldForHost("example.com", "secret-cross", "secretValue");
+
+  assert.deepEqual(password, { ok: true, reason: "", value: "pw-1", error: "" });
+  assert.equal(crossDomain.ok, false);
+  assert.equal(crossDomain.reason, "not_found");
 });
 
 test("touchEntry updates lastUsedAt and upserts only the changed encrypted row", async () => {
@@ -126,23 +188,4 @@ test("touchEntry updates lastUsedAt and upserts only the changed encrypted row",
   assert.equal(upserted[0].id, "second");
   assert.ok(Number(upserted[0].lastUsedAt) >= Date.now() - 1000);
   assert.ok(Number(upserted[0].updatedAt) >= Date.now() - 1000);
-});
-
-test("unlockVaultFromPanel validates empty and wrong password states", async () => {
-  setCredentialServiceDependencies({
-    unlockVault: async (password) => {
-      if (password === "good-pass") {
-        return { ok: true, reason: "", key: {} };
-      }
-      return { ok: false, reason: "invalid_password" };
-    }
-  });
-
-  const empty = await unlockVaultFromPanel("   ");
-  const wrong = await unlockVaultFromPanel("bad-pass");
-  const success = await unlockVaultFromPanel("good-pass");
-
-  assert.deepEqual(empty, { ok: false, error: "กรอก Master Password ก่อน" });
-  assert.deepEqual(wrong, { ok: false, error: "Master Password ไม่ถูกต้อง" });
-  assert.deepEqual(success, { ok: true, error: "" });
 });

@@ -23,19 +23,31 @@ export async function copyText(value) {
   if (!value) return;
   try {
     await navigator.clipboard.writeText(value);
+    return true;
   } catch (_error) {
-    fallbackCopy(value);
+    return fallbackCopy(value);
   }
 }
 
 function fallbackCopy(value) {
+  const container = document.body || document.documentElement;
+  if (!(container instanceof HTMLElement)) {
+    return false;
+  }
+
   const temp = document.createElement("textarea");
   temp.value = value;
   temp.setAttribute("readonly", "true");
   temp.style.position = "fixed";
   temp.style.opacity = "0";
-  document.body.appendChild(temp);
-  temp.select();
-  document.execCommand("copy");
-  document.body.removeChild(temp);
+
+  try {
+    container.appendChild(temp);
+    temp.select();
+    return document.execCommand("copy");
+  } catch (_error) {
+    return false;
+  } finally {
+    temp.remove();
+  }
 }

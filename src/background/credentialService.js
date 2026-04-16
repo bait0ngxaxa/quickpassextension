@@ -1,11 +1,10 @@
 import { decryptText } from "../shared/crypto.js";
 import { touchVaultSession } from "../shared/vaultSession.js";
 import { listEncryptedVaultItems, upsertEncryptedVaultItems } from "../supabase/vaultStore.js";
-import { initializeVault, unlockVault } from "../popup/vaultService.js";
+import { initializeVault } from "../popup/vaultService.js";
 
 const services = {
   initializeVault,
-  unlockVault,
   listEncryptedVaultItems,
   upsertEncryptedVaultItems,
   touchVaultSession
@@ -22,7 +21,6 @@ export async function getEntriesForHost(host) {
   }
 
   await services.touchVaultSession();
-  const key = vaultState.key;
   const result = await services.listEncryptedVaultItems();
   if (!result.ok) {
     return {
@@ -32,43 +30,56 @@ export async function getEntriesForHost(host) {
     };
   }
 
-  const decryptedEntries = [];
+  const visibleEntries = result.items
+    .filter((item) => shouldExposeItemForHost(item, normalizedHost))
+    .map((item) => buildEntrySummary(item, normalizedHost));
 
-  for (const item of result.items) {
-    try {
-      const entry = await decryptEntry(item, key, normalizedHost);
-      if (entry) {
-        decryptedEntries.push(entry);
-      }
-    } catch (_error) {
-      // ignore broken rows
-    }
-  }
-
-  if (!decryptedEntries.length) {
+  if (!visibleEntries.length) {
     return { locked: false, reason: "empty", entries: [] };
   }
 
-  const sortedEntries = sortEntries(decryptedEntries);
-  const hasMatched = sortedEntries.some((item) => item.isMatched);
-  return { locked: false, reason: hasMatched ? "" : "fallback_all", entries: sortedEntries };
+  return { locked: false, reason: "", entries: sortEntries(visibleEntries) };
 }
 
-export async function unlockVaultFromPanel(password) {
-  const value = String(password || "").trim();
-  if (!value) {
-    return { ok: false, error: "กรอก Master Password ก่อน" };
+export async function resolveEntryFieldForHost(host, id, field) {
+  const normalizedHost = normalizeHost(host || "");
+  const normalizedId = String(id || "").trim();
+  const normalizedField = normalizeEntryField(field);
+
+  if (!normalizedHost || !normalizedId || !normalizedField) {
+    return { ok: false, reason: "invalid_request", value: "", error: "คำขอไม่ถูกต้อง" };
   }
 
-  const result = await services.unlockVault(value);
+  const vaultState = await services.initializeVault();
+  if (vaultState.mode === "setup") {
+    return { ok: false, reason: "not_initialized", value: "", error: "ยังไม่ได้ตั้ง Master Password" };
+  }
+  if (vaultState.mode !== "ready" || !vaultState.key) {
+    return { ok: false, reason: "locked", value: "", error: "Vault ยังถูกล็อกอยู่" };
+  }
+
+  await services.touchVaultSession();
+  const result = await services.listEncryptedVaultItems();
   if (!result.ok) {
     return {
       ok: false,
-      error: result.reason === "invalid_password" ? "Master Password ไม่ถูกต้อง" : "ไม่สามารถปลดล็อกได้"
+      reason: result.error === "ยังไม่ได้ login Supabase" ? "not_logged_in" : "unknown",
+      value: "",
+      error: result.error || "ไม่สามารถอ่านข้อมูลได้"
     };
   }
 
-  return { ok: true, error: "" };
+  const item = result.items.find((candidate) => candidate.id === normalizedId && shouldExposeItemForHost(candidate, normalizedHost));
+  if (!item) {
+    return { ok: false, reason: "not_found", value: "", error: "ไม่พบข้อมูลที่ร้องขอ" };
+  }
+
+  try {
+    const value = await decryptEntryField(item, vaultState.key, normalizedField);
+    return { ok: true, reason: "", value, error: "" };
+  } catch (_error) {
+    return { ok: false, reason: "unavailable", value: "", error: "ไม่สามารถถอดรหัสข้อมูลได้" };
+  }
 }
 
 export async function touchEntry(id) {
@@ -95,16 +106,15 @@ export function setCredentialServiceDependencies(overrides) {
 
 export function resetCredentialServiceDependencies() {
   services.initializeVault = initializeVault;
-  services.unlockVault = unlockVault;
   services.listEncryptedVaultItems = listEncryptedVaultItems;
   services.upsertEncryptedVaultItems = upsertEncryptedVaultItems;
   services.touchVaultSession = touchVaultSession;
 }
 
-async function decryptEntry(item, key, normalizedHost) {
+function buildEntrySummary(item, normalizedHost) {
   const kind = item.kind || "login";
   const entryDomain = normalizeHost(item.domain || "");
-  const base = {
+  return {
     id: item.id,
     kind,
     domain: entryDomain,
@@ -114,21 +124,28 @@ async function decryptEntry(item, key, normalizedHost) {
     updatedAt: Number(item.updatedAt) || 0,
     label: item.label || ""
   };
+}
+
+async function decryptEntryField(item, key, field) {
+  const kind = item.kind || "login";
 
   if (kind === "secret") {
-    return {
-      ...base,
-      secretName: await decryptText(item.secretNameCipher, item.secretNameIv, key),
-      secretValue: await decryptText(item.secretValueCipher, item.secretValueIv, key)
-    };
+    if (field === "secretName") {
+      return decryptText(item.secretNameCipher, item.secretNameIv, key);
+    }
+    if (field === "secretValue") {
+      return decryptText(item.secretValueCipher, item.secretValueIv, key);
+    }
+    throw new Error("field_not_allowed");
   }
 
-  return {
-    ...base,
-    kind: "login",
-    username: await decryptText(item.usernameCipher, item.usernameIv, key),
-    password: await decryptText(item.passwordCipher, item.passwordIv, key)
-  };
+  if (field === "username") {
+    return decryptText(item.usernameCipher, item.usernameIv, key);
+  }
+  if (field === "password") {
+    return decryptText(item.passwordCipher, item.passwordIv, key);
+  }
+  throw new Error("field_not_allowed");
 }
 
 function sortEntries(entries) {
@@ -141,6 +158,22 @@ function sortEntries(entries) {
     const scoreB = b.lastUsedAt || b.updatedAt;
     return scoreB - scoreA;
   });
+}
+
+function shouldExposeItemForHost(item, normalizedHost) {
+  if (!normalizedHost) {
+    return false;
+  }
+
+  return normalizeHost(item?.domain || "") === normalizedHost;
+}
+
+function normalizeEntryField(field) {
+  const value = String(field || "").trim();
+  if (value === "username" || value === "password" || value === "secretName" || value === "secretValue") {
+    return value;
+  }
+  return "";
 }
 
 function normalizeHost(hostname) {

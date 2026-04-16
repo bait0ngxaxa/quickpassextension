@@ -1,4 +1,4 @@
-import { SCOPE_ALL, SCOPE_CROSS, SCOPE_CURRENT, SCOPE_PINNED, TAB_ALL, TAB_LOGIN, TAB_SECRET } from "./constants.js";
+import { TAB_ALL, TAB_LOGIN, TAB_SECRET } from "./constants.js";
 
 export function createPanelState(overrides = {}) {
   return {
@@ -7,7 +7,6 @@ export function createPanelState(overrides = {}) {
     reason: "",
     search: "",
     tab: TAB_ALL,
-    scope: SCOPE_ALL,
     ...overrides
   };
 }
@@ -17,9 +16,6 @@ export function getFilteredEntries(state) {
   return state.entries.filter((item) => {
     if (state.tab === TAB_LOGIN && item.kind !== "login") return false;
     if (state.tab === TAB_SECRET && item.kind !== "secret") return false;
-    if (state.scope === SCOPE_CURRENT && item.domain !== state.host) return false;
-    if (state.scope === SCOPE_CROSS && item.domain === state.host) return false;
-    if (state.scope === SCOPE_PINNED && !item.pinned) return false;
     if (!keyword) return true;
     return `${getEntryTitle(item, 0)} ${getEntrySubtitle(item, state.host)}`.toLowerCase().includes(keyword);
   });
@@ -33,6 +29,6 @@ export function getEntryTitle(entry, index) {
 
 export function getEntrySubtitle(entry, currentHost) {
   const domainText = entry.domain || "ไม่ระบุโดเมน";
-  const scopeText = entry.domain === currentHost ? "โดเมนปัจจุบัน" : "ข้ามโดเมน";
+  const scopeText = entry.domain === currentHost ? "โดเมนปัจจุบัน" : "รายการนี้";
   return `${domainText} · ${scopeText}`;
 }
